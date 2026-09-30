@@ -1,0 +1,2 @@
+# Única dependência externa autorizada pelas CONTEXT_RULES, e apenas para os testes.
+pytest==8.3.4

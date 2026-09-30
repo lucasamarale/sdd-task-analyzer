@@ -1,0 +1,10 @@
+[project]
+name = "sdd-task-analyzer"
+version = "1.0.0"
+description = "TaskAnalyzer: metricas de produtividade gerado via IA a partir de especificacao SDD"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra"
