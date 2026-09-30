@@ -117,11 +117,16 @@ def _validar_tarefa(tarefa: Tarefa) -> None:
         raise _erro(identificador, "prioridade", f"valores aceitos: {', '.join(PRIORIDADES)}")
 
     if tarefa.status not in STATUS_VALIDOS:
-        raise _erro(identificador, "status", f"valores aceitos: {', '.join(sorted(STATUS_VALIDOS))}")
+        aceitos = ", ".join(sorted(STATUS_VALIDOS))
+        raise _erro(identificador, "status", f"valores aceitos: {aceitos}")
 
     _validar_data(identificador, "data_criacao", tarefa.data_criacao)
     _validar_data(identificador, "prazo", tarefa.prazo)
-    for campo, data in (("data_inicio", tarefa.data_inicio), ("data_conclusao", tarefa.data_conclusao)):
+    datas_opcionais = (
+        ("data_inicio", tarefa.data_inicio),
+        ("data_conclusao", tarefa.data_conclusao),
+    )
+    for campo, data in datas_opcionais:
         if data is not None:
             _validar_data(identificador, campo, data)
             if data < tarefa.data_criacao:
@@ -152,17 +157,21 @@ def _da_prioridade(tarefas: Iterable[Tarefa], prioridade: str) -> list[Tarefa]:
     return [tarefa for tarefa in tarefas if tarefa.prioridade.lower() == prioridade]
 
 
-def _horas_ate_concluir(tarefa: Tarefa) -> float:
-    """Tempo entre a criação e a conclusão, em horas, sem arredondar."""
-    assert tarefa.data_conclusao is not None  # garantido pela validação
-    return (tarefa.data_conclusao - tarefa.data_criacao).total_seconds() / SEGUNDOS_POR_HORA
+def _horas_entre(inicio: datetime, fim: datetime) -> float:
+    """Intervalo entre duas datas, em horas, sem arredondar."""
+    return (fim - inicio).total_seconds() / SEGUNDOS_POR_HORA
 
 
 def _media_horas(concluidas: Sequence[Tarefa]) -> float:
     """Média de horas até concluir, ou 0.0 se não houver tarefa (RN-08 e RN-09)."""
-    if not concluidas:
+    duracoes = [
+        _horas_entre(tarefa.data_criacao, tarefa.data_conclusao)
+        for tarefa in concluidas
+        if tarefa.data_conclusao is not None
+    ]
+    if not duracoes:
         return 0.0
-    return sum(_horas_ate_concluir(tarefa) for tarefa in concluidas) / len(concluidas)
+    return sum(duracoes) / len(duracoes)
 
 
 def _taxa_atraso(concluidas: Sequence[Tarefa]) -> float:
