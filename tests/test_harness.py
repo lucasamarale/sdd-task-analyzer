@@ -108,3 +108,119 @@ def test_cenario_2_erro_interrompe_a_analise_mesmo_com_tarefas_validas() -> None
 
     with pytest.raises(TaskValidationError, match=r"8.*data_conclusao"):
         analyze_tasks([*validas, invalida])
+
+
+# ------------------------------------------------------------------ casos de borda
+
+ZERADO_POR_PRIORIDADE = {"alta": 0.0, "media": 0.0, "baixa": 0.0}
+
+
+def test_borda_lista_vazia_devolve_zeros_sem_excecao() -> None:
+    assert analyze_tasks([]) == {
+        "total_tarefas": 0,
+        "total_concluidas": 0,
+        "total_pendentes": 0,
+        "tempo_medio_conclusao_horas": 0.0,
+        "tempo_medio_por_prioridade_horas": ZERADO_POR_PRIORIDADE,
+        "taxa_atraso_percentual": 0.0,
+    }
+
+
+def test_borda_apenas_pendentes_devolve_zeros_sem_excecao() -> None:
+    pendentes = [tarefa(i, "media", "pendente") for i in (1, 2, 3)]
+
+    assert analyze_tasks(pendentes) == {
+        "total_tarefas": 3,
+        "total_concluidas": 0,
+        "total_pendentes": 3,
+        "tempo_medio_conclusao_horas": 0.0,
+        "tempo_medio_por_prioridade_horas": ZERADO_POR_PRIORIDADE,
+        "taxa_atraso_percentual": 0.0,
+    }
+
+
+# ------------------------------------------------------------------ complementares
+
+
+def test_c01_conclusao_exatamente_no_prazo_nao_e_atraso() -> None:
+    no_prazo = tarefa(1, "alta", "concluida", horas_ate_concluir=5, horas_de_prazo=5)
+    um_minuto_depois = tarefa(
+        2, "alta", "concluida", horas_ate_concluir=5 + 1 / 60, horas_de_prazo=5
+    )
+
+    assert analyze_tasks([no_prazo, um_minuto_depois])["taxa_atraso_percentual"] == 50.0
+
+
+@pytest.mark.parametrize("prioridade", ["urgente", "", "altissima"])
+def test_c02_prioridade_invalida_levanta_erro(prioridade: str) -> None:
+    with pytest.raises(TaskValidationError, match="prioridade"):
+        analyze_tasks([tarefa(1, prioridade, "pendente")])
+
+
+def test_c03_prioridade_em_maiusculas_e_aceita() -> None:
+    resultado = analyze_tasks([tarefa(1, "ALTA", "concluida", horas_ate_concluir=4)])
+
+    assert resultado["tempo_medio_por_prioridade_horas"]["alta"] == 4.0
+
+
+def test_c04_data_sem_fuso_levanta_erro() -> None:
+    sem_fuso = Tarefa(
+        id_tarefa=1,
+        data_criacao=datetime(2026, 9, 1, 8, 0),
+        prazo=INICIO + timedelta(hours=8),
+        prioridade="alta",
+        status="pendente",
+    )
+
+    with pytest.raises(TaskValidationError, match="data_criacao"):
+        analyze_tasks([sem_fuso])
+
+
+def test_c05_concluida_sem_data_conclusao_levanta_erro() -> None:
+    with pytest.raises(TaskValidationError, match=r"1.*data_conclusao"):
+        analyze_tasks([tarefa(1, "alta", "concluida", horas_ate_concluir=None)])
+
+
+@pytest.mark.parametrize("ids", [(1, 1), (0,), (-4,)])
+def test_c06_id_repetido_ou_nao_positivo_levanta_erro(ids: tuple[int, ...]) -> None:
+    with pytest.raises(TaskValidationError, match="id_tarefa"):
+        analyze_tasks([tarefa(i, "alta", "pendente") for i in ids])
+
+
+@pytest.mark.parametrize("status", ["finalizada", "Concluida", ""])
+def test_c07_status_invalido_levanta_erro(status: str) -> None:
+    with pytest.raises(TaskValidationError, match="status"):
+        analyze_tasks([tarefa(1, "alta", status, horas_ate_concluir=2)])
+
+
+def test_c08_media_arredondada_em_duas_casas() -> None:
+    tarefas = [
+        tarefa(1, "baixa", "concluida", horas_ate_concluir=1),
+        tarefa(2, "baixa", "concluida", horas_ate_concluir=2),
+        tarefa(3, "baixa", "concluida", horas_ate_concluir=2),
+    ]
+
+    # 5 / 3 = 1.666...
+    assert analyze_tasks(tarefas)["tempo_medio_conclusao_horas"] == 1.67
+
+
+def test_c09_nao_altera_a_lista_recebida(cenario_1: list[Tarefa]) -> None:
+    copia = copy.deepcopy(cenario_1)
+
+    analyze_tasks(cenario_1)
+
+    assert cenario_1 == copia
+
+
+def test_c10_data_inicio_anterior_a_criacao_levanta_erro() -> None:
+    inicio_invalido = Tarefa(
+        id_tarefa=9,
+        data_criacao=INICIO,
+        prazo=INICIO + timedelta(hours=8),
+        prioridade="media",
+        status="pendente",
+        data_inicio=INICIO - timedelta(hours=1),
+    )
+
+    with pytest.raises(TaskValidationError, match=r"9.*data_inicio"):
+        analyze_tasks([inicio_invalido])
