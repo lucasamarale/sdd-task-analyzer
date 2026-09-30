@@ -6,324 +6,224 @@ Especificação Técnica e Governança de Contexto (SDD e AI Harness).
 |---|---|
 | Autor | Lucas Amaral Evangelista, RA 22508120 |
 | Curso | Ciência da Computação, CEUB, turma UN 0726 |
-| Disciplina | Bootcamp III, Fase 1 |
-| Versão | 1.0, 21 de agosto de 2026 |
+| Disciplina | Bootcamp III |
+| Versão | **1.1**, 29 de setembro de 2026 |
+| Versão anterior | 1.0, 21 de agosto de 2026, entregue na Fase 1 |
 
-> Transposição para Markdown do documento entregue na Fase 1, sem alteração de conteúdo.
+Este documento é o **contrato executável** do módulo TaskAnalyzer. Ele é a fonte da verdade para o código gerado por assistentes de inteligência artificial. **Tudo o que não estiver escrito aqui não deve ser implementado.**
 
-## Repositório da Fase 2
+---
 
-O código gerado na próxima fase será versionado no repositório abaixo, com a estrutura descrita na seção 4.
+## 0. Histórico de versões
 
-| Item | Endereço |
-|---|---|
-| Repositório previsto para a Fase 2 | github.com/lucasamarale/sdd-task-analyzer |
+| Versão | Data | Resumo |
+|---|---|---|
+| 1.0 | 21/08/2026 | Contrato original da Fase 1 |
+| 1.1 | 29/09/2026 | Alinhamento ao enunciado da Fase 2, detalhado abaixo |
 
-## 1. Visão geral e contrato de negócio (SDD)
+### 0.1 Mudanças da versão 1.1
 
-Esta seção define o contrato executável que serve de fonte da verdade para o código a ser gerado por assistentes de inteligência artificial na Fase 2. Tudo o que não estiver escrito aqui não deve ser implementado.
+O enunciado da Fase 2 fixou nomes, unidades e comportamentos diferentes dos definidos na versão 1.0. Como a especificação é a fonte da verdade, **o contrato foi revisado antes de qualquer geração de código**, e não o contrário.
 
-### 1.1 Identificação
+| ID | Na versão 1.0 | Na versão 1.1 | Motivo |
+|---|---|---|---|
+| MUD-01 | função `analisar_tarefas` | função `analyze_tasks` | nome exigido pelo enunciado |
+| MUD-02 | exceções `TarefaInvalidaError` e `SemTarefasConcluidasError`, sob `TaskAnalyzerError` | exceção única `TaskValidationError` | nome exigido pelo enunciado |
+| MUD-03 | lista vazia ou sem tarefa concluída levanta exceção (RN-09) | lista vazia ou sem tarefa concluída devolve `0.0` nas métricas, sem exceção | comportamento exigido para os casos de borda |
+| MUD-04 | tempo médio em minutos | tempo médio em **horas** | campo `tempo_medio_conclusao_horas` exigido pelo enunciado |
+| MUD-05 | saída com `quantidade_tarefas` e `indicadores_por_prioridade` | saída com `total_tarefas`, `total_concluidas`, `total_pendentes`, `tempo_medio_conclusao_horas`, `tempo_medio_por_prioridade_horas` e `taxa_atraso_percentual` | campos exigidos pelo enunciado |
+| MUD-06 | prioridade sem tarefa concluída fica fora do resultado (RN-07) | as três prioridades aparecem sempre, com `0.0` quando não há concluída | coerência com MUD-03 |
+| MUD-07 | saída como dataclass `MetricasProdutividade` | saída como dicionário tipado, `ResultadoAnalise` (`TypedDict`) | permite conferir campo a campo nos testes, mantendo tipagem |
+| MUD-08 | cenários CA-01 a CA-08 | Cenário 1, Cenário 2, casos de borda e cenários complementares | numeração do enunciado |
+| MUD-09 | branches `main`, `develop` e `feature/<issue>-<slug>` | branches `main` e `feature/<nome>` | estratégia pedida no enunciado |
+| MUD-10 | nomes sempre em português | nomes públicos exigidos pelo enunciado ficam em inglês; o restante segue em português | conflito entre diretriz e enunciado |
+| MUD-11 | árvore sem arquivo de configuração | `pyproject.toml` na raiz | o pytest precisa saber que a raiz contém o pacote `src` |
 
-| Campo | Valor |
-|---|---|
-| Nome completo           | Lucas Amaral Evangelista                                                  |
-| RA                      | 22508120                                                                  |
-| Curso                   | Ciência da Computação                                                     |
-| Polo / Turma            | CEUB Asa Norte, turma UN 0726, noturno                                    |
-| E-mail institucional    | lucasamarale@sempreceub.com                                               |
-| Disciplina              | Bootcamp III, 75 horas, EAD                                               |
-| Entrega                 | Fase 1, Especificação Técnica e Governança de Contexto (SDD e AI Harness) |
-| Data de elaboração      | 21 de agosto de 2026                                                      |
-| Versão da especificação | 1.0                                                                       |
+**Sobre a MUD-03.** A versão 1.0 levantava exceção para conjunto sem tarefa concluída porque, só com a média, um zero seria indistinguível de um desempenho real igual a zero. Na versão 1.1 essa ambiguidade é resolvida por outro caminho: o resultado traz `total_concluidas`, então `total_concluidas == 0` diz explicitamente que não havia base de cálculo. A proteção contra divisão por zero continua obrigatória (RN-08): muda apenas o que a função faz quando o denominador é zero.
 
-### 1.2 Propósito do módulo TaskAnalyzer
+**Autorização.** Mudanças autorizadas por Lucas Amaral Evangelista, dono do contrato, em 29/09/2026, antes da geração do código, conforme a proibição 5 da seção 3.2 da versão 1.0: não alterar assinatura, nome ou parâmetros públicos sem autorização registrada.
+
+---
+
+## 1. Visão geral e contrato de negócio
+
+### 1.1 Propósito do módulo
 
 O TaskAnalyzer é um módulo de análise de tarefas e produtividade. Ele recebe um conjunto de tarefas já registradas e devolve um retrato quantitativo de como esse conjunto foi executado, sem opinar sobre pessoas e sem inferir nada que os dados não sustentem.
 
-O problema que ele resolve é conhecido de qualquer equipe: existe registro de tarefa em abundância e quase nenhuma leitura útil sobre ele. Saber quantas tarefas foram concluídas é fácil; saber quanto tempo elas realmente levaram, qual proporção estourou o prazo e se esse comportamento muda conforme a prioridade exige um cálculo consistente e sempre igual. Feito na mão, em planilha, esse cálculo varia conforme quem calcula.
+O módulo responde:
 
-O módulo entrega quatro respostas objetivas:
+- quantas tarefas existem, quantas foram concluídas e quantas estão pendentes;
+- qual o tempo médio de conclusão, em horas, no geral e por prioridade;
+- qual o percentual de tarefas concluídas depois do prazo.
 
-  - Tempo médio de conclusão, no conjunto geral e por prioridade, em minutos.
+O escopo é deliberadamente estreito. O TaskAnalyzer calcula e devolve métricas. Ele não armazena dados, não desenha gráficos, não envia notificação e não decide nada por ninguém.
 
-  - Taxa de atraso, isto é, o percentual de tarefas concluídas após o prazo acordado.
+### 1.2 Contrato executável de interface
 
-  - Quantidade de tarefas efetivamente consideradas, o que torna cada média auditável.
-
-  - Indicadores segmentados por prioridade, que revelam se o atraso se concentra em alguma faixa.
-
-O escopo é deliberadamente estreito. O TaskAnalyzer calcula e devolve métricas. Ele não armazena dados, não desenha gráficos, não envia notificação e não decide nada por ninguém: a decisão de gestão pertence a quem lê o resultado. Essa fronteira é o que permite testar o módulo de forma determinística e reaproveitá-lo em contextos diferentes.
-
-### 1.3 Contrato executável de interface
-
-A função pública do módulo tem a seguinte assinatura, que não pode ser alterada pelo assistente de inteligência artificial sem autorização registrada:
+A assinatura pública abaixo não pode ser alterada pelo assistente de inteligência artificial sem autorização registrada:
 
 ```python
-def analisar_tarefas(tarefas: list[Tarefa]) -> MetricasProdutividade:
+def analyze_tasks(tarefas: list[Tarefa]) -> ResultadoAnalise:
     """Calcula métricas de produtividade a partir de um conjunto de tarefas."""
 ```
 
-Tarefa e MetricasProdutividade são dataclasses congeladas (frozen=True) definidas no próprio módulo, com os campos descritos nas tabelas 1.3.1 e 1.3.2. O uso de dataclass, e não de dicionário livre, é uma decisão de contrato: ela dá validação de tipo estática, torna a estrutura explícita para o assistente de inteligência artificial e impede a criação silenciosa de campos não previstos.
+O módulo `src/task_analyzer.py` define, além da função:
 
-#### 1.3.1 Entradas
+| Nome | Tipo | Papel |
+|---|---|---|
+| `Tarefa` | dataclass congelada (`frozen=True`) | uma tarefa de entrada, com os campos da seção 1.2.1 |
+| `ResultadoAnalise` | `TypedDict` | o resultado, com os campos da seção 1.2.2 |
+| `TaskValidationError` | exceção, subclasse de `ValueError` | qualquer entrada que viole o contrato |
+| `analyze_tasks` | função | o ponto de entrada |
+
+#### 1.2.1 Entradas: `Tarefa`
 
 | Campo | Tipo | Obrigatório | Descrição e restrições |
 |---|---|---|---|
-| id_tarefa      | int             | Sim             | Identificador único da tarefa. Deve ser inteiro positivo e não repetido no conjunto.        |
-| data_criacao   | datetime        | Sim             | Data e hora de abertura da tarefa, em UTC e ciente de fuso (timezone-aware).                |
-| data_inicio    | `datetime \| None` | Não             | Data e hora do início da execução. Quando informada, não pode ser anterior a data_criacao. |
-| data_conclusao | `datetime \| None` | Condicional     | Obrigatória quando status é "concluida". Não pode ser anterior a data_criacao.             |
-| prazo           | datetime        | Sim             | Data e hora limite acordada para a conclusão da tarefa, em UTC.                             |
-| prioridade      | str             | Sim             | Valores aceitos: "baixa", "media" ou "alta". Comparação sem distinção de maiúsculas.        |
-| status          | str             | Sim             | Valores aceitos: "concluida", "pendente" ou "cancelada".                                    |
+| `id_tarefa` | `int` | Sim | Identificador da tarefa. Inteiro positivo, não repetido no conjunto. |
+| `data_criacao` | `datetime` | Sim | Abertura da tarefa. Ciente de fuso (timezone-aware). |
+| `prazo` | `datetime` | Sim | Data e hora limite para a conclusão. Ciente de fuso. |
+| `prioridade` | `str` | Sim | `"baixa"`, `"media"` ou `"alta"`, sem distinção de maiúsculas. |
+| `status` | `str` | Sim | `"concluida"`, `"pendente"` ou `"cancelada"`, exatamente assim, em minúsculas. |
+| `data_inicio` | `datetime \| None` | Não | Início da execução. Quando informada, ciente de fuso e não anterior a `data_criacao`. |
+| `data_conclusao` | `datetime \| None` | Condicional | Obrigatória quando `status` é `"concluida"`. Ciente de fuso e não anterior a `data_criacao`. Se informada em tarefa não concluída, é validada, mas não entra em nenhum cálculo. |
 
-#### 1.3.2 Saídas
+#### 1.2.2 Saídas: `ResultadoAnalise`
 
 | Campo | Tipo | Descrição |
 |---|---|---|
-| tempo_medio_conclusao_min | float             | Tempo médio de conclusão das tarefas concluídas, em minutos, arredondado em duas casas decimais.                    |
-| taxa_atraso_percentual     | float             | Percentual de tarefas concluídas após o prazo, de 0.0 a 100.0, arredondado em duas casas decimais.                  |
-| quantidade_tarefas          | int               | Total de tarefas concluídas consideradas no cálculo.                                                                |
-| indicadores_por_prioridade | dict[str, dict] | Mesmas três métricas acima, calculadas separadamente para cada prioridade que possua ao menos uma tarefa concluída. |
+| `total_tarefas` | `int` | Quantidade de tarefas recebidas, de qualquer status. |
+| `total_concluidas` | `int` | Quantidade com status `"concluida"`. |
+| `total_pendentes` | `int` | Quantidade com status `"pendente"`. |
+| `tempo_medio_conclusao_horas` | `float` | Média, em horas, de `data_conclusao - data_criacao` das concluídas. Duas casas decimais. `0.0` quando não há concluída. |
+| `tempo_medio_por_prioridade_horas` | `dict[str, float]` | A mesma média, separada por prioridade. Sempre com as chaves `"alta"`, `"media"` e `"baixa"`. `0.0` para prioridade sem concluída. |
+| `taxa_atraso_percentual` | `float` | Percentual das concluídas com `data_conclusao` depois do `prazo`, de `0.0` a `100.0`. Duas casas decimais. `0.0` quando não há concluída. |
 
-Cada chave de indicadores_por_prioridade é uma das prioridades presentes no conjunto, e o valor associado repete a mesma estrutura de três métricas, restrita às tarefas daquela prioridade.
+Tarefas canceladas entram em `total_tarefas`, mas não em `total_concluidas` nem em `total_pendentes`.
 
-#### 1.3.3 Regras de negócio e restrições
+### 1.3 Regras de negócio
 
 | ID | Regra |
 |---|---|
-| RN-01  | Somente tarefas com status "concluida" entram em qualquer cálculo. Tarefas pendentes e canceladas são ignoradas sem gerar erro.                                                                                        |
-| RN-02  | O tempo de conclusão de uma tarefa é a diferença entre data_conclusao e data_criacao, expressa em minutos.                                                                                                           |
-| RN-03  | Uma tarefa é considerada atrasada quando data_conclusao é estritamente posterior a prazo. Conclusão exatamente no prazo não é atraso.                                                                                 |
-| RN-04  | Todas as datas são tratadas em UTC. Datas sem informação de fuso são rejeitadas como entrada inválida.                                                                                                                 |
-| RN-05  | Toda métrica de tempo e de percentual é arredondada para duas casas decimais apenas na saída, nunca durante o cálculo intermediário.                                                                                   |
-| RN-06  | As métricas são calculadas para o conjunto geral e, separadamente, por prioridade.                                                                                                                                     |
-| RN-07  | Prioridade sem nenhuma tarefa concluída não aparece em indicadores_por_prioridade. A ausência da chave comunica ausência de dado, o que é mais honesto do que devolver zero.                                         |
-| RN-08  | Nenhuma divisão é executada sem verificação prévia do denominador, conforme a regra RN-09.                                                                                                                             |
-| RN-09  | Conjunto de entrada vazio, ou conjunto sem nenhuma tarefa concluída, não produz métrica: a função levanta SemTarefasConcluidasError. Devolver zero nesse caso seria indistinguível de um desempenho real igual a zero. |
-| RN-10  | Qualquer violação de tipo, de enumeração ou de coerência entre datas interrompe a análise e levanta TarefaInvalidaError, identificando o id_tarefa e o campo responsável.                                             |
-| RN-11  | A função é pura: não altera a lista recebida, não lê nem escreve arquivos, não acessa rede e não persiste estado.                                                                                                      |
+| RN-01 | `total_tarefas` conta todas as tarefas; `total_concluidas` conta as de status `"concluida"`; `total_pendentes`, as de status `"pendente"`. |
+| RN-02 | O tempo de conclusão de uma tarefa é `data_conclusao - data_criacao`, expresso em horas. |
+| RN-03 | Uma tarefa é atrasada quando `data_conclusao` é **estritamente** posterior a `prazo`. Conclusão exatamente no prazo não é atraso. |
+| RN-04 | Todas as datas precisam ser cientes de fuso. Data sem fuso é entrada inválida. |
+| RN-05 | Toda métrica de tempo e de percentual é arredondada para duas casas decimais **apenas na saída**, nunca no cálculo intermediário. |
+| RN-06 | O tempo médio é calculado no geral e por prioridade. A taxa de atraso é calculada no geral. |
+| RN-07 | `tempo_medio_por_prioridade_horas` traz sempre as três prioridades, com `0.0` quando não há concluída naquela prioridade. |
+| RN-08 | Nenhuma divisão é executada sem verificar antes se o denominador é zero. |
+| RN-09 | Lista vazia, ou lista sem nenhuma tarefa concluída, devolve `0.0` em todas as médias e na taxa de atraso, sem levantar exceção. |
+| RN-10 | Qualquer violação do contrato de entrada interrompe a análise e levanta `TaskValidationError`, com mensagem que identifique o `id_tarefa` e o campo responsável. Toda a entrada é validada antes de qualquer cálculo. |
+| RN-11 | A função é pura: não altera a lista recebida, não lê nem escreve arquivos, não acessa rede e não lê o relógio do sistema. |
 
-#### 1.3.4 Exceções previstas
+### 1.4 Violações que levantam `TaskValidationError`
 
-O módulo define uma hierarquia própria de exceções. Erro previsto é parte do contrato, e não acidente:
+- `id_tarefa` que não seja inteiro positivo, ou repetido no conjunto;
+- `prioridade` fora de `"baixa"`, `"media"` e `"alta"`;
+- `status` fora de `"concluida"`, `"pendente"` e `"cancelada"`;
+- qualquer data sem fuso;
+- tarefa `"concluida"` sem `data_conclusao`;
+- `data_conclusao` anterior a `data_criacao`;
+- `data_inicio` anterior a `data_criacao`.
 
-| Exceção | Herda de | Quando é levantada |
+---
+
+## 2. Cenários de aceite e Test Harness
+
+Os cenários são a tradução verificável do contrato. Cada um vira ao menos um teste em `tests/test_harness.py`.
+
+### 2.1 Cenário 1: sucesso
+
+| | |
+|---|---|
+| **Dado** | seis tarefas válidas: quatro concluídas (duas de prioridade alta, uma média e uma baixa), uma pendente e uma cancelada. As concluídas levaram 2 h e 4 h (alta), 6 h (média) e 10 h (baixa), e duas delas terminaram depois do prazo |
+| **Quando** | `analyze_tasks` for executada |
+| **Então** | `total_tarefas` = 6, `total_concluidas` = 4, `total_pendentes` = 1, `tempo_medio_conclusao_horas` = 5.5, por prioridade `alta` = 3.0, `media` = 6.0 e `baixa` = 10.0, e `taxa_atraso_percentual` = 50.0 |
+
+### 2.2 Cenário 2: exceção por datas inconsistentes
+
+| | |
+|---|---|
+| **Dado** | uma tarefa concluída cuja `data_conclusao` é anterior à `data_criacao` |
+| **Quando** | `analyze_tasks` for executada |
+| **Então** | deve levantar `TaskValidationError`, sem calcular métrica, com mensagem que cite o `id_tarefa` e o campo `data_conclusao` |
+
+### 2.3 Casos de borda
+
+| ID | Dado | Então |
 |---|---|---|
-| TaskAnalyzerError         | Exception         | Classe base do módulo. Permite que o chamador capture qualquer erro previsto do TaskAnalyzer com um único except. |
-| TarefaInvalidaError       | TaskAnalyzerError | Campo ausente, tipo incorreto, valor fora da enumeração, data sem fuso ou datas incoerentes entre si.             |
-| SemTarefasConcluidasError | TaskAnalyzerError | Não há tarefa concluída no conjunto informado. É o caso que evita a divisão por zero.                             |
+| B-01 | lista vazia | totais `0`, médias `0.0`, taxa `0.0`, as três prioridades com `0.0`, sem exceção |
+| B-02 | só tarefas pendentes | `total_tarefas` e `total_pendentes` iguais ao tamanho da lista, `total_concluidas` = 0, médias e taxa `0.0`, sem exceção |
 
-## 2. Especificação de cenários de aceite e Test Harness
+### 2.4 Cenários complementares
 
-Os cenários abaixo descrevem o comportamento esperado do sistema em linguagem estruturada Dado, Quando, Então. Eles são a tradução verificável do contrato da seção 1 e, na Fase 2, viram testes automatizados em pytest. Nenhum deles pode ser alterado ou removido pelo assistente de inteligência artificial.
-
-Os cenários CA-01 e CA-02 são os dois exigidos pelo enunciado. Os demais foram acrescentados para cobrir fronteiras que costumam passar despercebidas e nas quais o código gerado por inteligência artificial erra com frequência: o limite exato do prazo, a diferença entre conjunto vazio e desempenho zero, e a garantia de que a função não altera a entrada.
-
-### 2.1 Cenários de aceite
-
-| CA-01 | Cálculo correto das métricas com prioridades diferentes (Sucesso) |
-|---|---|
-| **DADO**   | Um conjunto de seis tarefas válidas, sendo quatro concluídas (duas de prioridade alta, uma média e uma baixa), uma pendente e uma cancelada, com datas coerentes e duas delas concluídas após o prazo                                                                                                               |
-| **QUANDO** | O analisador de tarefas for executado sobre esse conjunto                                                                                                                                                                                                                                                           |
-| **ENTÃO**  | Deve retornar quantidade_tarefas igual a 4, tempo_medio_conclusao_min igual à média dos tempos das quatro concluídas, taxa_atraso_percentual igual a 50.0 e indicadores_por_prioridade com exatamente três chaves, cada uma trazendo as três métricas calculadas apenas sobre as tarefas daquela prioridade |
-
-| CA-02 | Entrada com datas inválidas (Exceção) |
-|---|---|
-| **DADO**   | Um conjunto contendo uma tarefa concluída cuja data_conclusao é anterior à data_criacao                                     |
-| **QUANDO** | O analisador de tarefas for executado                                                                                         |
-| **ENTÃO**  | Deve levantar TarefaInvalidaError, sem calcular métrica alguma, com mensagem indicando o id_tarefa e o campo data_conclusao |
-
-| CA-03 | Conjunto sem tarefas concluídas, risco de divisão por zero (Exceção) |
-|---|---|
-| **DADO**   | Um conjunto com três tarefas válidas, todas com status "pendente" ou "cancelada"                                    |
-| **QUANDO** | O analisador de tarefas for executado                                                                               |
-| **ENTÃO**  | Deve levantar SemTarefasConcluidasError antes de qualquer divisão, com mensagem clara de que não há base de cálculo |
-
-| CA-04 | Lista de entrada vazia (Exceção) |
-|---|---|
-| **DADO**   | Uma lista de tarefas vazia                                                       |
-| **QUANDO** | O analisador de tarefas for executado                                            |
-| **ENTÃO**  | Deve levantar SemTarefasConcluidasError, com o mesmo tratamento do cenário CA-03 |
-
-| CA-05 | Tarefas não concluídas são ignoradas sem erro (Sucesso) |
-|---|---|
-| **DADO**   | Um conjunto com duas tarefas concluídas e cinco tarefas pendentes ou canceladas, todas válidas                |
-| **QUANDO** | O analisador de tarefas for executado                                                                         |
-| **ENTÃO**  | Deve retornar quantidade_tarefas igual a 2, considerando somente as tarefas concluídas, sem levantar exceção |
-
-| CA-06 | Conclusão exatamente no prazo não conta como atraso (Fronteira) |
-|---|---|
-| **DADO**   | Um conjunto com duas tarefas concluídas, uma com data_conclusao idêntica ao prazo e outra com um minuto de atraso  |
-| **QUANDO** | O analisador de tarefas for executado                                                                               |
-| **ENTÃO**  | Deve retornar taxa_atraso_percentual igual a 50.0, contabilizando apenas a tarefa estritamente posterior ao prazo |
-
-| CA-07 | Valor fora da enumeração de prioridade (Exceção) |
-|---|---|
-| **DADO**   | Um conjunto contendo uma tarefa com prioridade "urgente", valor não previsto no contrato |
-| **QUANDO** | O analisador de tarefas for executado                                                    |
-| **ENTÃO**  | Deve levantar TarefaInvalidaError, informando o campo prioridade e os valores aceitos    |
-
-| CA-08 | Imutabilidade da entrada (Contrato) |
-|---|---|
-| **DADO**   | Um conjunto válido de tarefas e uma cópia desse mesmo conjunto feita antes da execução                       |
-| **QUANDO** | O analisador de tarefas for executado                                                                        |
-| **ENTÃO**  | O conjunto original deve permanecer idêntico à cópia, comprovando que a função não altera os dados recebidos |
-
-### 2.2 Planejamento do Test Harness
-
-O Test Harness é o mecanismo que transforma os cenários acima em validação objetiva do código gerado. Ele será implementado em tests/test_harness.py com pytest, única dependência externa autorizada no projeto.
-
-A conversão segue quatro passos:
-
-  - Cada cenário de aceite vira exatamente uma função de teste, nomeada de forma a descrever o comportamento verificado, e não o número do cenário.
-
-  - Os dados de entrada de cada cenário são construídos em fixtures do pytest, o que impede que um teste contamine o outro e deixa explícito o conjunto usado.
-
-  - Os cenários de exceção usam pytest.raises com o argumento match, garantindo que não apenas o tipo da exceção esteja correto, mas também que a mensagem identifique a tarefa e o campo problemáticos.
-
-  - Variações do mesmo comportamento, como diferentes valores inválidos de prioridade, usam pytest.mark.parametrize em vez de testes duplicados.
-
-O mapeamento entre cenário e teste é o que garante rastreabilidade: todo requisito tem um teste, e todo teste aponta para um requisito.
-
-| Cenário | Função de teste | Forma de validação |
+| ID | Dado | Então |
 |---|---|---|
-| CA-01       | test_calcula_metricas_gerais_e_por_prioridade        | assert de igualdade sobre cada campo do dicionário de saída            |
-| CA-02       | test_data_conclusao_anterior_a_criacao_levanta_erro | pytest.raises(TarefaInvalidaError) com match no id da tarefa           |
-| CA-03       | test_sem_tarefas_concluidas_levanta_erro              | pytest.raises(SemTarefasConcluidasError)                               |
-| CA-04       | test_lista_vazia_levanta_erro                          | pytest.raises(SemTarefasConcluidasError)                               |
-| CA-05       | test_ignora_pendentes_e_canceladas                     | assert sobre quantidade_tarefas                                       |
-| CA-06       | test_conclusao_no_prazo_nao_e_atraso                 | assert sobre taxa_atraso_percentual                                  |
-| CA-07       | test_prioridade_invalida_levanta_erro                  | pytest.raises(TarefaInvalidaError) parametrizado com valores inválidos |
-| CA-08       | test_nao_altera_lista_de_entrada                      | assert de igualdade contra copy.deepcopy do conjunto original          |
+| C-01 | duas concluídas, uma exatamente no prazo e outra um minuto depois | `taxa_atraso_percentual` = 50.0 |
+| C-02 | prioridade fora da enumeração | `TaskValidationError` citando o campo `prioridade` |
+| C-03 | prioridade escrita em maiúsculas, como `"ALTA"` | aceita e contada como `"alta"` |
+| C-04 | data sem fuso | `TaskValidationError` |
+| C-05 | tarefa concluída sem `data_conclusao` | `TaskValidationError` citando `data_conclusao` |
+| C-06 | `id_tarefa` repetido, zero ou negativo | `TaskValidationError` citando `id_tarefa` |
+| C-07 | status fora da enumeração | `TaskValidationError` citando `status` |
+| C-08 | média com dízima, como 1 h, 2 h e 2 h | valor arredondado em duas casas: 1.67 |
+| C-09 | uma lista válida e uma cópia profunda dela | depois da execução, a lista original é igual à cópia |
+| C-10 | `data_inicio` anterior a `data_criacao` | `TaskValidationError` citando `data_inicio` |
 
-Critério de aceitação do harness: o comando abaixo deve terminar sem falha e sem teste ignorado antes de qualquer código ser considerado homologado.
+### 2.5 Critério de aceitação do harness
 
 ```bash
-pytest -v tests/test_harness.py
+pytest -v
 ```
 
-Enquanto os oito testes não passarem, o código gerado pela inteligência artificial não é aceito, independentemente de parecer correto na leitura.
+O comando deve terminar com **todos os testes aprovados e nenhum ignorado**. Enquanto isso não acontecer, o código gerado não é aceito, mesmo que pareça correto na leitura.
 
-## 3. Governança de contexto e regras para agentes de IA (CONTEXT_RULES)
+---
 
-Esta seção será versionada no repositório como CONTEXT_RULES.md e fornecida ao assistente de inteligência artificial junto de cada solicitação. Ela existe porque o modelo não tem memória do projeto: sem regras persistentes, ele preenche as lacunas com suposições plausíveis, e é exatamente aí que nascem a inconsistência e a alucinação.
+## 3. Governança de contexto
 
-### 3.1 Diretrizes arquiteturais obrigatórias
+As regras para o assistente de inteligência artificial estão em [`CONTEXT_RULES.md`](../CONTEXT_RULES.md), na raiz do repositório, e são fornecidas junto com esta especificação em toda solicitação.
 
-  - Python 3.11 ou superior como versão mínima obrigatória.
+---
 
-  - Type hints em todas as funções, métodos e parâmetros, incluindo o tipo de retorno.
+## 4. Repositório e versionamento
 
-  - Princípio da responsabilidade única (SRP) e código limpo segundo a PEP 8, com limite de 100 colunas por linha.
-
-  - Documentação formal no padrão Google style docstrings para o módulo, as classes, as funções e os parâmetros.
-
-  - Funções pequenas, coesas e com um único propósito, separando validação, cálculo e formatação da saída.
-
-  - Tratamento de exceções específico, com mensagens claras que identifiquem a tarefa e o campo responsáveis pelo erro.
-
-  - Logs estruturados com o módulo padrão logging, em nível INFO para o fluxo normal e WARNING para tarefas descartadas.
-
-  - Nomes de variáveis e funções descritivos, em português, coerentes com os termos usados neste contrato.
-
-  - Uso exclusivo da biblioteca padrão do Python no código de produção. Apenas o pytest é permitido no código de teste.
-
-  - Estruturas de dados imutáveis sempre que possível, com dataclasses congeladas para representar a tarefa.
-
-### 3.2 Proibições explícitas
-
-As proibições são mais eficazes que as permissões, porque delimitam o espaço de resposta do modelo. Cada item abaixo é uma condição de rejeição do código gerado.
-
-  - Não utilizar bibliotecas externas não autorizadas, o que inclui pandas, numpy e qualquer dependência de terceiros no código de produção.
-
-  - Não alterar, remover ou adaptar os cenários de teste definidos nesta especificação.
-
-  - Não modificar a estrutura de pastas definida na seção 4.
-
-  - Não persistir dados em arquivos, em banco de dados ou em qualquer forma de estado global.
-
-  - Não alterar a assinatura, o nome ou os parâmetros das funções públicas sem autorização registrada.
-
-  - Não gerar código sem os testes correspondentes para cada nova funcionalidade.
-
-  - Não inserir código duplicado ou desnecessário, nem funcionalidades que este contrato não pediu.
-
-  - Não assumir comportamento não especificado. Diante de ambiguidade, perguntar antes de implementar.
-
-  - Não retornar valores diferentes dos definidos no contrato de saída, nem em tipo nem em unidade.
-
-  - Não comentar código em excesso, apenas onde a intenção não for evidente pela leitura.
-
-  - Não acessar rede, sistema de arquivos, variáveis de ambiente ou relógio do sistema dentro da função de análise.
-
-### 3.3 Regras de interação com a inteligência artificial
-
-  - Fornecer sempre o contexto completo antes da solicitação, anexando esta especificação e o arquivo CONTEXT_RULES.md.
-
-  - Validar se a IA compreendeu o contrato pedindo que ela reformule as regras com as próprias palavras antes de gerar código.
-
-  - Solicitar explicação da decisão sempre que houver dúvida sobre a solução proposta.
-
-  - Revisar criticamente todo o código gerado, linha por linha, sem aceitar sugestão por conveniência.
-
-  - Rejeitar e registrar toda resposta que viole as proibições da seção 3.2, anotando o caso no relatório de governança da Fase 3.
-
-  - Nunca colar segredo, credencial ou dado pessoal real no prompt.
-
-  - Tratar a IA como executora e não como autora: a decisão técnica e a responsabilidade permanecem humanas.
-
-## 4. Arquitetura do repositório e preparação para Git e GitHub
-
-### 4.1 Árvore do repositório
-
-A estrutura abaixo será criada no GitHub na Fase 2 e não pode ser alterada pelo assistente de inteligência artificial. Ela separa três coisas que costumam se misturar: o que foi especificado, o que valida, e o que foi gerado.
+### 4.1 Árvore
 
 ```text
 sdd-task-analyzer/
-├── README.md                     # Visão geral do projeto no GitHub
-├── CONTEXT_RULES.md              # Regras persistentes fornecidas à IA (seção 3)
-├── .gitignore                    # Arquivos e pastas ignorados pelo Git
+├── README.md                     # Visão geral, execução e status
+├── CONTEXT_RULES.md              # Regras de governança da IA
+├── .gitignore                    # Arquivos ignorados pelo Git
 ├── requirements.txt              # Dependências autorizadas (apenas pytest)
+├── pyproject.toml                # Configuração do pytest (MUD-11)
 ├── specs/
-│   └── task_analyzer_spec.md     # Especificação SDD derivada deste documento
+│   └── task_analyzer_spec.md     # Esta especificação
 ├── tests/
-│   └── test_harness.py           # Testes automatizados de validação (pytest)
+│   └── test_harness.py           # Test Harness com pytest
 └── src/
     └── task_analyzer.py          # Código gerado via IA e homologado
 ```
 
-A separação entre specs, tests e src é o que materializa o SDD. A especificação nasce primeiro e é imutável durante a geração; o teste nasce em seguida e define o critério objetivo; o código é o último e é o único artefato descartável dos três, porque pode ser regenerado a partir dos outros dois.
+A especificação nasce primeiro e fica imutável durante a geração. O teste nasce em seguida e define o critério objetivo. O código é o último, e é o único dos três que pode ser descartado e regenerado a partir dos outros dois.
 
-### 4.2 Plano de homologação humana
+### 4.2 Homologação humana
 
-Todo código gerado pela inteligência artificial passa por revisão crítica humana antes de ser aceito e versionado. A homologação segue a sequência abaixo, e nenhuma etapa pode ser pulada por pressa de prazo.
+Nenhum código gerado é aceito sem, nesta ordem:
 
-| Passo | Verificação | O que é feito |
-|---|---|---|
-| 1         | Execução completa dos testes automatizados | Rodar pytest -v e confirmar que os oito cenários de aceite passam, sem teste ignorado.                                                |
-| 2         | Conformidade com o contrato de negócio     | Conferir campo a campo se as entradas, as saídas e as regras RN-01 a RN-11 foram respeitadas.                                         |
-| 3         | Aderência às CONTEXT_RULES                | Verificar type hints, docstrings, limite de linha, ausência de biblioteca externa e cada proibição da seção 3.2.                      |
-| 4         | Análise de qualidade e legibilidade        | Avaliar coesão das funções, clareza dos nomes, tratamento de erro e ausência de duplicação.                                           |
-| 5         | Testes manuais complementares              | Exercitar casos de borda não cobertos automaticamente, como conjunto muito grande e datas em fusos distintos.                         |
-| 6         | Aprovação e registro                       | Somente após as cinco verificações acima, aprovar o pull request, registrar no histórico o que foi alterado e então permitir o merge. |
+1. `pytest -v` com todos os testes aprovados;
+2. conferência campo a campo contra as seções 1.2, 1.3 e 1.4;
+3. conferência contra cada item de `CONTEXT_RULES.md`;
+4. revisão de legibilidade, coesão e tratamento de erro;
+5. aprovação registrada no Pull Request, e só então o merge.
 
-Esse processo garante que a inteligência artificial seja uma ferramenta produtiva, mas que a decisão final e a responsabilidade técnica permaneçam humanas. Se o código passa nos testes e ainda assim não convence na leitura, ele é rejeitado: teste verde não é sinônimo de código correto, apenas de código que atende ao que foi testado.
-
-### 4.3 Estratégia de versionamento
+### 4.3 Versionamento
 
 | Aspecto | Definição |
 |---|---|
-| Modelo de branches | Git Flow simplificado, com main estável, develop de integração e feature/\<numero-issue\>-\<slug\> para cada entrega.      |
-| Commits            | Pequenos, atômicos e descritivos, no padrão Conventional Commits, por exemplo feat: calcula taxa de atraso por prioridade. |
-| Pull Requests      | Obrigatórios para todo código gerado por IA, com a descrição indicando qual cenário de aceite o código atende.             |
-| Revisão            | Nenhum merge ocorre sem a homologação humana descrita na seção 4.2 concluída e registrada.                                 |
-| Tags               | Uma tag por entrega avaliativa, começando em v1.0.0 ao final da Fase 2.                                                    |
-| Rastreabilidade    | Cada requisito desta especificação tem um teste associado, e cada teste tem um commit que o introduziu.                    |
-
-## Considerações finais
-
-Esta especificação é o contrato. Na Fase 2, o assistente de inteligência artificial atuará como executor sobre este documento, e não como autor da solução, e o Test Harness dirá objetivamente se o resultado atende ao que foi acordado aqui. O papel que assumo no projeto é o de arquiteto da especificação, curador do contexto e homologador crítico do que for gerado.
-
-A qualidade do código da próxima fase será, em boa medida, consequência direta da precisão deste texto. Foi por isso que as ambiguidades foram fechadas agora: o comportamento no limite exato do prazo, a diferença entre conjunto vazio e desempenho zero, a unidade de cada métrica e o momento certo do arredondamento. Cada uma dessas decisões, se deixada em aberto, viraria uma suposição do modelo.
+| Branches | `main` estável, e uma `feature/<nome>` por entrega: `feature/sdd-specification`, `feature/test-harness`, `feature/task-analyzer-impl` |
+| Commits | pequenos e descritivos, no padrão Conventional Commits |
+| Pull Requests | obrigatórios para entrar na `main`, com descrição e checklist de homologação |
+| Tags | uma por entrega avaliativa, começando em `v1.0.0` ao final da Fase 2 |
