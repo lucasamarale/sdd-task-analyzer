@@ -1,0 +1,48 @@
+# Pipeline de Integração Contínua do TaskAnalyzer.
+# A cada push ou Pull Request em main e develop, o Test Harness roda num
+# ambiente limpo. Se um teste falhar, o build fica vermelho e o merge não deve entrar.
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test Harness (pytest)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v6
+
+      - name: Preparar o Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Instalar as dependências
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Rodar o Test Harness
+        run: pytest tests/test_harness.py -v
+
+  docker:
+    name: Test Harness no container
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v6
+
+      - name: Construir a imagem e rodar a suíte isolada
+        run: docker compose run --rm --build tests
