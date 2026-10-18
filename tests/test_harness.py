@@ -224,3 +224,16 @@ def test_c10_data_inicio_anterior_a_criacao_levanta_erro() -> None:
 
     with pytest.raises(TaskValidationError, match=r"9.*data_inicio"):
         analyze_tasks([inicio_invalido])
+
+
+def test_c11_tempo_fracionado_nao_e_arredondado_antes_da_media() -> None:
+    tarefas = [
+        tarefa(1, "alta", "concluida", horas_ate_concluir=1.5),
+        tarefa(2, "alta", "concluida", horas_ate_concluir=2.25),
+    ]
+
+    # (1.5 + 2.25) / 2 = 1.875. Arredondar cada tarefa antes da média daria 2.0 (RN-05).
+    resultado = analyze_tasks(tarefas)
+
+    assert resultado["tempo_medio_conclusao_horas"] == 1.88
+    assert resultado["tempo_medio_por_prioridade_horas"]["alta"] == 1.88
