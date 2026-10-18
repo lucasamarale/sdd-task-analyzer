@@ -12,9 +12,9 @@ Projeto do Bootcamp III, Ciência da Computação, CEUB. Autor: **Lucas Amaral E
 |---|---|---|
 | 1 | Especificação SDD, cenários de aceite e CONTEXT_RULES | concluída |
 | 2 | Repositório, código gerado via IA, Test Harness e Pull Requests | concluída: 25 testes, 100% aprovados |
-| 3 | GitHub Actions, Docker e relatório de governança | **concluída: build verde na CI e no container** |
+| 3 | GitHub Actions, Docker e relatório de governança | **concluída: 26 testes, build verde na CI e no container** |
 
-**Build:** a cada push ou Pull Request em `main` e `develop`, o GitHub Actions roda os 25 testes em Python 3.11 e depois repete a suíte dentro do container. O selo acima mostra o estado atual da `main`.
+**Build:** a cada push ou Pull Request em `main` e `develop`, o GitHub Actions roda os 26 testes em Python 3.11 e depois repete a suíte dentro do container. O selo acima mostra o estado atual da `main`.
 
 ## O que o módulo faz
 
@@ -100,7 +100,7 @@ sdd-task-analyzer/
 │   ├── system_design_document.pdf  # o mesmo contrato, para leitura
 │   └── requirements.yaml         # requisitos para leitura por máquina
 ├── tests/
-│   └── test_harness.py           # Test Harness: 25 testes
+│   └── test_harness.py           # Test Harness: 26 testes
 └── src/
     └── task_analyzer.py          # código gerado via IA e homologado
 ```
