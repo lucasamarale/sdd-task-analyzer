@@ -34,3 +34,15 @@ jobs:
 
       - name: Rodar o Test Harness
         run: pytest tests/test_harness.py -v
+
+  docker:
+    name: Test Harness no container
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v6
+
+      - name: Construir a imagem e rodar a suíte isolada
+        run: docker compose run --rm --build tests
