@@ -124,6 +124,7 @@ cenarios_de_aceite:
   - {id: C-08, espera: "media 1 h, 2 h e 2 h arredonda para 1.67"}
   - {id: C-09, espera: "a lista recebida nao e alterada"}
   - {id: C-10, espera: "data_inicio anterior a criacao levanta erro"}
+  - {id: C-11, espera: "1.5 h e 2.25 h dao media 1.88; nada e arredondado antes da media"}
 
 governanca:
   regras_da_ia: CONTEXT_RULES.md

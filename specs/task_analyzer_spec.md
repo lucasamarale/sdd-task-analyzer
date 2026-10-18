@@ -46,7 +46,7 @@ O enunciado da Fase 2 fixou nomes, unidades e comportamentos diferentes dos defi
 
 ### 0.2 Mudanças da versão 1.2
 
-A Fase 3 não muda nenhuma regra de negócio, nenhum campo e nenhuma assinatura. Ela muda **como o contrato é verificado e entregue**: o Test Harness passa a rodar sozinho a cada mudança e dentro de um ambiente empacotado.
+A Fase 3 não muda nenhuma regra de negócio, nenhum campo e nenhuma assinatura. Ela muda **como o contrato é verificado e entregue**: o Test Harness passa a rodar sozinho a cada mudança e dentro de um ambiente empacotado, e ganha um cenário que a auditoria de governança mostrou estar faltando.
 
 | ID | Na versão 1.1 | Na versão 1.2 | Motivo |
 |---|---|---|---|
@@ -54,6 +54,7 @@ A Fase 3 não muda nenhuma regra de negócio, nenhum campo e nenhuma assinatura.
 | MUD-13 | o harness roda só na máquina do desenvolvedor | o harness roda no GitHub Actions a cada push e Pull Request, em `ubuntu-latest` com Python 3.11 | integração contínua (seção 4.4) |
 | MUD-14 | sem empacotamento | `Dockerfile` com `python:3.11-slim` e `docker-compose.yml` com o serviço `tests` | execução reprodutível em qualquer máquina (seção 4.5) |
 | MUD-15 | especificação apenas em Markdown | a especificação ganha duas formas derivadas: `specs/system_design_document.pdf`, para leitura, e `specs/requirements.yaml`, para leitura por máquina | arquitetura de repositório exigida pelo enunciado da Fase 3 |
+| MUD-16 | cenários C-01 a C-10 | novo cenário C-11, sobre arredondamento intermediário | a auditoria da Fase 3 mostrou que um código que arredondasse cada tarefa antes da média passava nos 25 testes; o C-11 fecha essa brecha |
 
 O arquivo `task_analyzer_spec.md` continua sendo a fonte da verdade. O PDF e o YAML são gerados a partir dele e não podem divergir: se divergirem, vale o Markdown.
 
@@ -187,6 +188,7 @@ Os cenários são a tradução verificável do contrato. Cada um vira ao menos u
 | C-08 | média com dízima, como 1 h, 2 h e 2 h | valor arredondado em duas casas: 1.67 |
 | C-09 | uma lista válida e uma cópia profunda dela | depois da execução, a lista original é igual à cópia |
 | C-10 | `data_inicio` anterior a `data_criacao` | `TaskValidationError` citando `data_inicio` |
+| C-11 | duas concluídas de prioridade alta, com 1,5 h e 2,25 h | média geral e da prioridade alta iguais a 1.88, provando que nada é arredondado antes da média (RN-05) |
 
 ### 2.5 Critério de aceitação do harness
 
