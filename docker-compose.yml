@@ -1,0 +1,10 @@
+# Orquestra a execução isolada do Test Harness.
+# Uso: docker compose run --rm tests
+services:
+  tests:
+    build: .
+    image: sdd-task-analyzer:latest
+    # Sistema de arquivos só de leitura: os testes não gravam nada no container.
+    read_only: true
+    tmpfs:
+      - /tmp
