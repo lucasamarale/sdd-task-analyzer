@@ -1,5 +1,7 @@
 # sdd-task-analyzer
 
+[![CI](https://github.com/lucasamarale/sdd-task-analyzer/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/lucasamarale/sdd-task-analyzer/actions/workflows/ci.yml)
+
 TaskAnalyzer, um módulo de métricas de produtividade construído com **Spec-Driven Development**: a especificação vem primeiro, o código é gerado por assistente de IA a partir dela, e um Test Harness em pytest decide se o resultado é aceito.
 
 Projeto do Bootcamp III, Ciência da Computação, CEUB. Autor: **Lucas Amaral Evangelista**, RA 22508120.
@@ -9,10 +11,10 @@ Projeto do Bootcamp III, Ciência da Computação, CEUB. Autor: **Lucas Amaral E
 | Fase | Entrega | Situação |
 |---|---|---|
 | 1 | Especificação SDD, cenários de aceite e CONTEXT_RULES | concluída |
-| 2 | Repositório, código gerado via IA, Test Harness e Pull Requests | **concluída: 25 testes, 100% aprovados** |
-| 3 | GitHub Actions, Docker e relatório de governança | próxima etapa |
+| 2 | Repositório, código gerado via IA, Test Harness e Pull Requests | concluída: 25 testes, 100% aprovados |
+| 3 | GitHub Actions, Docker e relatório de governança | **concluída: 26 testes, build verde na CI e no container** |
 
-**Build:** `pytest -v` com 25 de 25 testes aprovados, em Python 3.12. A execução automática no GitHub Actions, com badge de status, entra na Fase 3.
+**Build:** a cada push ou Pull Request em `main` e `develop`, o GitHub Actions roda os 26 testes em Python 3.11 e depois repete a suíte dentro do container. O selo acima mostra o estado atual da `main`.
 
 ## O que o módulo faz
 
@@ -48,6 +50,25 @@ analyze_tasks(tarefas)
 
 ## Como executar
 
+### Com Docker (recomendado)
+
+Requer apenas o Docker. Nada de Python na máquina.
+
+```bash
+git clone https://github.com/lucasamarale/sdd-task-analyzer.git
+cd sdd-task-analyzer
+docker compose run --rm tests
+```
+
+O comando constrói a imagem a partir de `python:3.11-slim`, se ela ainda não existir, e roda o Test Harness isolado. Para construir e rodar só com o Docker:
+
+```bash
+docker build -t sdd-task-analyzer .
+docker run --rm sdd-task-analyzer
+```
+
+### Localmente
+
 Requer **Python 3.11 ou superior**.
 
 ```bash
@@ -63,15 +84,23 @@ pytest -v
 
 ```text
 sdd-task-analyzer/
+├── .github/
+│   └── workflows/
+│       └── ci.yml                # pipeline de CI no GitHub Actions
+├── Dockerfile                    # imagem python:3.11-slim com o Test Harness
+├── docker-compose.yml            # serviço tests: docker compose run --rm tests
+├── .dockerignore
 ├── README.md                     # este arquivo
 ├── CONTEXT_RULES.md              # regras de governança da IA
 ├── .gitignore
 ├── requirements.txt              # única dependência: pytest
 ├── pyproject.toml                # configuração do pytest
 ├── specs/
-│   └── task_analyzer_spec.md     # o contrato, versão 1.1
+│   ├── task_analyzer_spec.md     # o contrato, versão 1.2, fonte da verdade
+│   ├── system_design_document.pdf  # o mesmo contrato, para leitura
+│   └── requirements.yaml         # requisitos para leitura por máquina
 ├── tests/
-│   └── test_harness.py           # Test Harness: 25 testes
+│   └── test_harness.py           # Test Harness: 26 testes
 └── src/
     └── task_analyzer.py          # código gerado via IA e homologado
 ```
@@ -84,4 +113,14 @@ sdd-task-analyzer/
 4. **Código gerado por IA.** O assistente recebeu a especificação e as regras, reformulou o contrato com as próprias palavras e gerou `src/task_analyzer.py`.
 5. **Homologação humana.** A primeira versão passou em todos os testes, mas violava duas CONTEXT_RULES: duas linhas acima de 100 colunas e um `assert` usado no lugar de verificação explícita. Foi corrigida antes do merge.
 
-Cada etapa entrou na `main` por Pull Request: [#1 especificação](../../pull/1), [#2 Test Harness](../../pull/2) e [#3 implementação](../../pull/3).
+6. **Integração contínua e container.** Na Fase 3, o Test Harness passou a rodar sozinho no GitHub Actions a cada mudança, e dentro de uma imagem Docker, para que o resultado não dependa da máquina de ninguém.
+
+Cada etapa entrou por Pull Request: [#1 especificação](../../pull/1), [#2 Test Harness](../../pull/2), [#3 implementação](../../pull/3), [#4 CI](../../pull/4), [#5 Docker](../../pull/5) e [#6 especificação v1.2](../../pull/6).
+
+## Fluxo de branches
+
+```text
+feature/<nome>  ──PR──▶  develop  ──PR──▶  main
+```
+
+Cada mudança nasce numa `feature/`, entra na `develop` por Pull Request com a CI verde, e a `develop` entra na `main` a cada entrega.

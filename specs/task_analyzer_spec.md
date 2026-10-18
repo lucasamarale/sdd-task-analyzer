@@ -7,8 +7,8 @@ Especificação Técnica e Governança de Contexto (SDD e AI Harness).
 | Autor | Lucas Amaral Evangelista, RA 22508120 |
 | Curso | Ciência da Computação, CEUB, turma UN 0726 |
 | Disciplina | Bootcamp III |
-| Versão | **1.1**, 29 de setembro de 2026 |
-| Versão anterior | 1.0, 21 de agosto de 2026, entregue na Fase 1 |
+| Versão | **1.2**, 18 de outubro de 2026 |
+| Versões anteriores | 1.0, 21/08/2026, Fase 1; 1.1, 29/09/2026, Fase 2 |
 
 Este documento é o **contrato executável** do módulo TaskAnalyzer. Ele é a fonte da verdade para o código gerado por assistentes de inteligência artificial. **Tudo o que não estiver escrito aqui não deve ser implementado.**
 
@@ -19,7 +19,8 @@ Este documento é o **contrato executável** do módulo TaskAnalyzer. Ele é a f
 | Versão | Data | Resumo |
 |---|---|---|
 | 1.0 | 21/08/2026 | Contrato original da Fase 1 |
-| 1.1 | 29/09/2026 | Alinhamento ao enunciado da Fase 2, detalhado abaixo |
+| 1.1 | 29/09/2026 | Alinhamento ao enunciado da Fase 2, detalhado na seção 0.1 |
+| 1.2 | 18/10/2026 | Infraestrutura da Fase 3: CI, Docker e artefatos de especificação, detalhado na seção 0.2 |
 
 ### 0.1 Mudanças da versão 1.1
 
@@ -42,6 +43,22 @@ O enunciado da Fase 2 fixou nomes, unidades e comportamentos diferentes dos defi
 **Sobre a MUD-03.** A versão 1.0 levantava exceção para conjunto sem tarefa concluída porque, só com a média, um zero seria indistinguível de um desempenho real igual a zero. Na versão 1.1 essa ambiguidade é resolvida por outro caminho: o resultado traz `total_concluidas`, então `total_concluidas == 0` diz explicitamente que não havia base de cálculo. A proteção contra divisão por zero continua obrigatória (RN-08): muda apenas o que a função faz quando o denominador é zero.
 
 **Autorização.** Mudanças autorizadas por Lucas Amaral Evangelista, dono do contrato, em 29/09/2026, antes da geração do código, conforme a proibição 5 da seção 3.2 da versão 1.0: não alterar assinatura, nome ou parâmetros públicos sem autorização registrada.
+
+### 0.2 Mudanças da versão 1.2
+
+A Fase 3 não muda nenhuma regra de negócio, nenhum campo e nenhuma assinatura. Ela muda **como o contrato é verificado e entregue**: o Test Harness passa a rodar sozinho a cada mudança e dentro de um ambiente empacotado, e ganha um cenário que a auditoria de governança mostrou estar faltando.
+
+| ID | Na versão 1.1 | Na versão 1.2 | Motivo |
+|---|---|---|---|
+| MUD-12 | branches `main` e `feature/<nome>` | branches `main`, `develop` e `feature/<nome>`; as features entram na `develop` e a `develop` entra na `main` | gatilhos da CI exigidos pelo enunciado da Fase 3, em `main` e `develop` |
+| MUD-13 | o harness roda só na máquina do desenvolvedor | o harness roda no GitHub Actions a cada push e Pull Request, em `ubuntu-latest` com Python 3.11 | integração contínua (seção 4.4) |
+| MUD-14 | sem empacotamento | `Dockerfile` com `python:3.11-slim` e `docker-compose.yml` com o serviço `tests` | execução reprodutível em qualquer máquina (seção 4.5) |
+| MUD-15 | especificação apenas em Markdown | a especificação ganha duas formas derivadas: `specs/system_design_document.pdf`, para leitura, e `specs/requirements.yaml`, para leitura por máquina | arquitetura de repositório exigida pelo enunciado da Fase 3 |
+| MUD-16 | cenários C-01 a C-10 | novo cenário C-11, sobre arredondamento intermediário | a auditoria da Fase 3 mostrou que um código que arredondasse cada tarefa antes da média passava nos 25 testes; o C-11 fecha essa brecha |
+
+O arquivo `task_analyzer_spec.md` continua sendo a fonte da verdade. O PDF e o YAML são gerados a partir dele e não podem divergir: se divergirem, vale o Markdown.
+
+**Autorização.** Mudanças autorizadas por Lucas Amaral Evangelista em 18/10/2026.
 
 ---
 
@@ -171,6 +188,7 @@ Os cenários são a tradução verificável do contrato. Cada um vira ao menos u
 | C-08 | média com dízima, como 1 h, 2 h e 2 h | valor arredondado em duas casas: 1.67 |
 | C-09 | uma lista válida e uma cópia profunda dela | depois da execução, a lista original é igual à cópia |
 | C-10 | `data_inicio` anterior a `data_criacao` | `TaskValidationError` citando `data_inicio` |
+| C-11 | duas concluídas de prioridade alta, com 1,5 h e 2,25 h | média geral e da prioridade alta iguais a 1.88, provando que nada é arredondado antes da média (RN-05) |
 
 ### 2.5 Critério de aceitação do harness
 
@@ -197,10 +215,18 @@ sdd-task-analyzer/
 ├── README.md                     # Visão geral, execução e status
 ├── CONTEXT_RULES.md              # Regras de governança da IA
 ├── .gitignore                    # Arquivos ignorados pelo Git
+├── .dockerignore                 # Arquivos fora da imagem
+├── .github/
+│   └── workflows/
+│       └── ci.yml                # Pipeline de CI (MUD-13)
+├── Dockerfile                    # Empacotamento (MUD-14)
+├── docker-compose.yml            # Orquestração do serviço tests (MUD-14)
 ├── requirements.txt              # Dependências autorizadas (apenas pytest)
 ├── pyproject.toml                # Configuração do pytest (MUD-11)
 ├── specs/
-│   └── task_analyzer_spec.md     # Esta especificação
+│   ├── task_analyzer_spec.md     # Esta especificação, fonte da verdade
+│   ├── system_design_document.pdf  # A mesma, para leitura (MUD-15)
+│   └── requirements.yaml         # Requisitos para leitura por máquina (MUD-15)
 ├── tests/
 │   └── test_harness.py           # Test Harness com pytest
 └── src/
@@ -223,7 +249,28 @@ Nenhum código gerado é aceito sem, nesta ordem:
 
 | Aspecto | Definição |
 |---|---|
-| Branches | `main` estável, e uma `feature/<nome>` por entrega: `feature/sdd-specification`, `feature/test-harness`, `feature/task-analyzer-impl` |
+| Branches | `main` estável, `develop` de integração (MUD-12) e uma `feature/<nome>` por entrega: `feature/sdd-specification`, `feature/test-harness`, `feature/task-analyzer-impl`, `feature/ci-pipeline`, `feature/docker` e `feature/specs-fase3` |
 | Commits | pequenos e descritivos, no padrão Conventional Commits |
-| Pull Requests | obrigatórios para entrar na `main`, com descrição e checklist de homologação |
-| Tags | uma por entrega avaliativa, começando em `v1.0.0` ao final da Fase 2 |
+| Pull Requests | obrigatórios para entrar na `develop` e na `main`, com descrição, checklist de homologação e build verde na CI |
+| Tags | uma por entrega avaliativa: `v1.0.0` ao final da Fase 2 e `v2.0.0` ao final da Fase 3 |
+
+### 4.4 Integração contínua
+
+O arquivo `.github/workflows/ci.yml` define o pipeline:
+
+| Etapa | Definição |
+|---|---|
+| Gatilhos | push ou Pull Request nas branches `main` e `develop` |
+| Ambiente | `ubuntu-latest` com Python 3.11 |
+| Preparação | `pip install -r requirements.txt` |
+| Execução | `pytest tests/test_harness.py -v` |
+| Container | job `docker`, executado depois do anterior: `docker compose run --rm --build tests` |
+
+Build vermelho bloqueia o merge. Um Pull Request só entra com os dois jobs verdes.
+
+### 4.5 Containerização
+
+| Arquivo | Papel |
+|---|---|
+| `Dockerfile` | constrói a imagem a partir de `python:3.11-slim`, instala só o `requirements.txt`, copia `src/` e `tests/` e define o pytest como comando principal (`CMD`). Roda com usuário sem privilégio de root. |
+| `docker-compose.yml` | define o serviço `tests`, com sistema de arquivos só de leitura. A suíte roda com um único comando: `docker compose run --rm tests`. |
